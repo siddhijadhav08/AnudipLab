@@ -1,0 +1,48 @@
+package implementation;
+
+public class Bank {
+	private double amount;
+	
+	// Parameterized constructor initializing amount to 10000
+	public Bank(double initialAmount)
+	{
+		this.amount = initialAmount;
+	}
+	
+	//Withdraw method
+	public void withdraw(double withdrawalAmount) {
+        String message = (withdrawalAmount <= amount) 
+            ? "Withdrawal successful" 
+            : "Insufficient balance";
+
+        System.out.println(message);
+
+        // Update amount if successful
+        amount = (withdrawalAmount <= amount) 
+            ? amount - withdrawalAmount 
+            : amount;
+    }
+
+    // Deposit method
+    public void deposit(double depositAmount) {
+        amount += depositAmount;
+        System.out.println("Deposited: " + depositAmount);
+    }
+
+    // Display balance method
+    public void displayBalance() {
+        System.out.println("Total Balance: " + amount);
+    }
+
+    // Main method to run the example
+    public static void main(String[] args) {
+        Bank bank = new Bank(10000);
+
+        double withdrawalAmount = 5000;
+        double depositAmount = 5000;
+
+        bank.withdraw(withdrawalAmount);
+        bank.deposit(depositAmount);
+        bank.displayBalance();
+    }
+}
