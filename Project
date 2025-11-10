@@ -1,0 +1,131 @@
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.WriterException;
+import com.google.zxing.client.j2se.MatrixToImageWriter;
+import com.google.zxing.common.BitMatrix;
+import com.google.zxing.qrcode.QRCodeWriter;
+
+import javax.swing.*;
+import java.awt.*;
+import java.io.*;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
+import java.security.SecureRandom;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Scanner;
+
+public class OTPQRWithLoginCount {
+
+    private static final String LOGIN_COUNT_FILE = "login_counts.txt";
+
+    private static Map<String, Integer> loadLoginCounts() {
+        Map<String, Integer> loginCounts = new HashMap<>();
+        File file = new File(LOGIN_COUNT_FILE);
+        if (!file.exists()) return loginCounts;
+
+        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+            String line;
+            while((line = br.readLine()) != null) {
+                if(line.contains("=")) {
+                    String[] parts = line.split("=");
+                    loginCounts.put(parts[0], Integer.parseInt(parts[1]));
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Error reading login counts: " + e.getMessage());
+        }
+        return loginCounts;
+    }
+
+    private static void saveLoginCounts(Map<String, Integer> loginCounts) {
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter(LOGIN_COUNT_FILE))) {
+            for (Map.Entry<String, Integer> entry : loginCounts.entrySet()) {
+                bw.write(entry.getKey() + "=" + entry.getValue());
+                bw.newLine();
+            }
+        } catch (IOException e) {
+            System.out.println("Error saving login counts: " + e.getMessage());
+        }
+    }
+
+    private static String generateOTP(int length) {
+        String numbers = "0123456789";
+        SecureRandom random = new SecureRandom();
+        StringBuilder sb = new StringBuilder();
+        for(int i = 0; i < length; i++) {
+            sb.append(numbers.charAt(random.nextInt(numbers.length())));
+        }
+        return sb.toString();
+    }
+
+    private static void generateQRCodeImage(String text, int width, int height, String filePath) throws WriterException, IOException {
+        QRCodeWriter qrCodeWriter = new QRCodeWriter();
+        BitMatrix bitMatrix = qrCodeWriter.encode(text, BarcodeFormat.QR_CODE, width, height);
+        Path path = FileSystems.getDefault().getPath(filePath);
+        MatrixToImageWriter.writeToPath(bitMatrix, "PNG", path);
+        System.out.println("QR Code generated at: " + filePath);
+    }
+
+    private static void displayQRCode(String filePath) {
+        JFrame frame = new JFrame("User QR Code");
+        frame.setSize(400,450);
+        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        ImageIcon icon = new ImageIcon(filePath);
+        JLabel label = new JLabel(icon);
+        label.setHorizontalAlignment(JLabel.CENTER);
+        frame.add(label);
+        frame.setLocationRelativeTo(null);
+        frame.setVisible(true);
+    }
+
+    public static void main(String[] args) {
+
+        Scanner scanner = new Scanner(System.in);
+
+        Map<String,Integer> loginCounts = loadLoginCounts();
+
+        System.out.println("=== E-Authentication Using OTP + QR Code ===");
+
+        System.out.print("Enter Name: ");
+        String name = scanner.nextLine();
+
+        System.out.print("Enter Email: ");
+        String email = scanner.nextLine();
+
+        System.out.print("Enter Mobile Number: ");
+        String mobile = scanner.nextLine();
+
+        String otp = generateOTP(6);
+        System.out.println("OTP sent (simulated): " + otp);
+
+        System.out.print("Enter OTP: ");
+        String enteredOtp = scanner.nextLine();
+
+        if(otp.equals(enteredOtp)) {
+            System.out.println("Authentication Successful!");
+
+            int count = loginCounts.getOrDefault(email, 0) + 1;
+            loginCounts.put(email, count);
+            saveLoginCounts(loginCounts);
+
+            System.out.println("You have logged in " + count + " times.");
+
+            String dataForQRCode = "Name:" + name + ";Email:" + email + ";Mobile:" + mobile;
+            String base64Data = Base64.getEncoder().encodeToString(dataForQRCode.getBytes());
+
+            try {
+                String qrFilePath = "UserQR.png";
+                generateQRCodeImage(base64Data, 350, 350, qrFilePath);
+                displayQRCode(qrFilePath);
+            } catch (Exception e) {
+                System.out.println("Could not generate QR Code: " + e.getMessage());
+            }
+
+        } else {
+            System.out.println("Invalid OTP! Authentication failed. QR code will not be generated.");
+        }
+
+        scanner.close();
+    }
+}
